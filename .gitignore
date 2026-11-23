@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+build/
+**/build/
+web-build/
+**/web-build/
+
+# Expo & Metro
+.expo/
+**/.expo/
+expo-env.d.ts
+**/.metro-health-check*
+
+# Vite cache
+.vite/
+**/.vite/
+
+# Environment files
+.env
+.env*.local
+*.env
+
+# Native builds
+/ios
+/android
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Logs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# OS
+.DS_Store
+Thumbs.db
