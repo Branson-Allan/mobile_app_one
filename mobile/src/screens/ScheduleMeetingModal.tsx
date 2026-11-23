@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SearchableStaffPickerModal } from '../components/SearchableStaffPickerModal';
+import { ENTERPRISE_STAFF_DIRECTORY } from '../data/mockData';
 import { Colors } from '../theme/colors';
 import { BorderRadius, Shadows, Spacing } from '../theme/spacing';
 import { Lead } from '../types';
@@ -51,6 +53,11 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
   const [selectedStaff, setSelectedStaff] = useState<string[]>([
     lead.assignedTo[0] || 'Branson Allann',
   ]);
+  const [staffPickerVisible, setStaffPickerVisible] = useState(false);
+
+  const handleRemoveStaff = (name: string) => {
+    setSelectedStaff(selectedStaff.filter((s) => s !== name));
+  };
 
   const handleAddCustomStatus = () => {
     if (newCustomStatus.trim()) {
@@ -88,7 +95,8 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
   };
 
   return (
-    <Modal
+    <>
+      <Modal
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
@@ -321,22 +329,69 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
             />
           </View>
 
-          {/* Participants: Staff and Customer */}
+          {/* Participants: Staff Hosts and Customer */}
           <View style={styles.section}>
-            <Text style={styles.label}>Participants</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.label}>Meeting Participants</Text>
+              <Text style={styles.badgeCount}>
+                {selectedStaff.length + 1} Attendees
+              </Text>
+            </View>
+
+            {/* Customer Attendee (Fixed) */}
+            <View style={styles.participantChip}>
+              <Text style={styles.participantIcon}>👤</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.participantName}>{lead.customer}</Text>
+                <Text style={styles.participantRole}>Lead Customer / Guest</Text>
+              </View>
+            </View>
+
+            {/* Staff Host Picker Trigger */}
+            <Text style={[styles.label, { marginTop: Spacing.sm }]}>
+              Host Staff / Assigned Officers ({selectedStaff.length})
+            </Text>
+            <TouchableOpacity
+              style={styles.searchStaffBtn}
+              onPress={() => setStaffPickerVisible(true)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Select and search host officers from staff directory"
+            >
+              <View style={styles.searchStaffBtnLeft}>
+                <Text style={styles.searchStaffIcon}>🔍</Text>
+                <Text style={styles.searchStaffBtnText}>
+                  Select & Search Staff Directory...
+                </Text>
+              </View>
+              <Text style={styles.searchStaffArrow}>▾</Text>
+            </TouchableOpacity>
+
+            {/* Selected Staff Host Chips */}
             <View style={styles.participantsContainer}>
-              <View style={styles.participantChip}>
-                <Text style={styles.participantIcon}>👤</Text>
-                <Text style={styles.participantName}>
-                  {lead.customer} (Customer)
-                </Text>
-              </View>
-              <View style={styles.participantChip}>
-                <Text style={styles.participantIcon}>👔</Text>
-                <Text style={styles.participantName}>
-                  {selectedStaff.join(', ')} (Host)
-                </Text>
-              </View>
+              {selectedStaff.map((name) => {
+                const staff = ENTERPRISE_STAFF_DIRECTORY.find((s) => s.name === name);
+                const role = staff?.role || 'Host Officer';
+                return (
+                  <View key={name} style={styles.staffHostChip}>
+                    <Text style={styles.participantIcon}>👔</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.participantName}>{name}</Text>
+                      <Text style={styles.participantRole}>{role}</Text>
+                    </View>
+                    {selectedStaff.length > 1 && (
+                      <TouchableOpacity
+                        style={styles.deleteStaffTarget}
+                        onPress={() => handleRemoveStaff(name)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel={`Remove ${name}`}
+                      >
+                        <Text style={styles.deleteStaffIcon}>✕</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })}
             </View>
           </View>
 
@@ -354,6 +409,17 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
         </View>
       </KeyboardAvoidingView>
     </Modal>
+
+    {/* Searchable Staff Directory Modal */}
+    <SearchableStaffPickerModal
+      visible={staffPickerVisible}
+      title="Select Meeting Host Officers"
+      selectedStaffNames={selectedStaff}
+      onSelectStaff={(selected) => setSelectedStaff(selected)}
+      onClose={() => setStaffPickerVisible(false)}
+      multiSelect={true}
+    />
+  </>
   );
 };
 
@@ -566,6 +632,47 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginVertical: 4,
   },
+  badgeCount: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.brandPrimary,
+    backgroundColor: Colors.brandSubtle,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  searchStaffBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surfaceCard,
+    borderWidth: 1.5,
+    borderColor: Colors.brandPrimary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  searchStaffBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  searchStaffIcon: {
+    fontSize: 14,
+  },
+  searchStaffBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.brandPrimary,
+  },
+  searchStaffArrow: {
+    fontSize: 14,
+    color: Colors.brandPrimary,
+    fontWeight: '700',
+  },
   participantsContainer: {
     gap: 6,
     marginTop: 4,
@@ -585,6 +692,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: Colors.textPrimary,
+  },
+  participantRole: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    marginTop: 1,
+  },
+  staffHostChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceInput,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+    gap: 8,
+  },
+  deleteStaffTarget: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: Colors.surfaceBorder,
+  },
+  deleteStaffIcon: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontWeight: 'bold',
   },
   footer: {
     flexDirection: 'row',

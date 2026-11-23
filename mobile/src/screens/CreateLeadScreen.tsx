@@ -10,8 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SearchableStaffPickerModal } from '../components/SearchableStaffPickerModal';
 import { SegmentedControl } from '../components/SegmentedControl';
-import { MOCK_CUSTOMERS } from '../data/mockData';
+import { ENTERPRISE_STAFF_DIRECTORY, MOCK_CUSTOMERS } from '../data/mockData';
 import { Colors } from '../theme/colors';
 import { BorderRadius, Shadows, Spacing } from '../theme/spacing';
 import { Customer360, CustomerSegment, Lead, LeadPriority, LeadStatus } from '../types';
@@ -34,14 +35,6 @@ const AVAILABLE_PRODUCTS = [
   'Bancassurance Life',
 ];
 
-const AVAILABLE_STAFF = [
-  { name: 'Branson Allann', role: 'Relationship Manager' },
-  { name: 'Calendar event', role: 'Administrator' },
-  { name: 'Demo Account', role: 'Sales Officer' },
-  { name: 'Mutai Mutai', role: 'Account Exec' },
-  { name: 'Nelly Nelly', role: 'Collections Manager' },
-  { name: 'System Admin', role: 'Administrator' },
-];
 
 const BRANCHES = [
   'Courtyard Branch',
@@ -93,6 +86,7 @@ export const CreateLeadScreen: React.FC<CreateLeadScreenProps> = ({
   const [assignedStaff, setAssignedStaff] = useState<
     { name: string; role: string }[]
   >([{ name: 'Branson Allann', role: 'Relationship Manager' }]);
+  const [staffPickerVisible, setStaffPickerVisible] = useState(false);
 
   // GPS Simulation
   const handleUseGps = () => {
@@ -113,11 +107,14 @@ export const CreateLeadScreen: React.FC<CreateLeadScreenProps> = ({
   };
 
   // Staff Assignment Handlers
-  const handleAddStaff = (staff: { name: string; role: string }) => {
-    if (!assignedStaff.some((s) => s.name === staff.name)) {
-      setAssignedStaff([...assignedStaff, staff]);
-    }
+  const handleSelectStaffFromPicker = (selectedNames: string[]) => {
+    const updated = selectedNames.map((name) => {
+      const found = ENTERPRISE_STAFF_DIRECTORY.find((s) => s.name === name);
+      return { name, role: found?.role || 'Sales Officer' };
+    });
+    setAssignedStaff(updated);
   };
+
 
   const handleRemoveStaff = (staffName: string) => {
     setAssignedStaff(assignedStaff.filter((s) => s.name !== staffName));
@@ -629,40 +626,55 @@ export const CreateLeadScreen: React.FC<CreateLeadScreenProps> = ({
             </View>
           </View>
 
-          {/* Assigned Staff Chips */}
+          {/* Assigned Staff */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Assigned Staff</Text>
-            <View style={styles.assignedStaffContainer}>
-              {assignedStaff.map((staff) => (
-                <View key={staff.name} style={styles.staffChip}>
-                  <Text style={styles.staffChipName}>{staff.name}</Text>
-                  <View style={styles.staffRoleBadge}>
-                    <Text style={styles.staffRoleText}>{staff.role}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.deleteStaffTarget}
-                    onPress={() => handleRemoveStaff(staff.name)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Text style={styles.deleteStaffIcon}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
+            <View style={styles.fieldHeaderRow}>
+              <Text style={styles.label}>Assigned Staff</Text>
+              <Text style={styles.badgeCount}>{assignedStaff.length} Assigned</Text>
             </View>
 
-            {/* Quick Add Staff List */}
-            <Text style={styles.subLabel}>Available Officers:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
-              {AVAILABLE_STAFF.map((staff) => (
-                <TouchableOpacity
-                  key={staff.name}
-                  style={styles.addStaffChip}
-                  onPress={() => handleAddStaff(staff)}
-                >
-                  <Text style={styles.addStaffText}>＋ {staff.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            {/* Select & Search Trigger Button */}
+            <TouchableOpacity
+              style={styles.searchStaffBtn}
+              onPress={() => setStaffPickerVisible(true)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Select and search assigned officers from directory"
+            >
+              <View style={styles.searchStaffBtnLeft}>
+                <Text style={styles.searchStaffIcon}>🔍</Text>
+                <Text style={styles.searchStaffBtnText}>
+                  Select & Search Staff Directory...
+                </Text>
+              </View>
+              <Text style={styles.searchStaffArrow}>▾</Text>
+            </TouchableOpacity>
+
+            {/* Assigned Staff Chips */}
+            {assignedStaff.length > 0 ? (
+              <View style={styles.assignedStaffContainer}>
+                {assignedStaff.map((staff) => (
+                  <View key={staff.name} style={styles.staffChip}>
+                    <Text style={styles.staffChipName}>{staff.name}</Text>
+                    <View style={styles.staffRoleBadge}>
+                      <Text style={styles.staffRoleText}>{staff.role}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.deleteStaffTarget}
+                      onPress={() => handleRemoveStaff(staff.name)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel={`Remove ${staff.name}`}
+                    >
+                      <Text style={styles.deleteStaffIcon}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.noStaffAssignedText}>
+                No officers assigned yet. Tap above to search & select from the enterprise directory.
+              </Text>
+            )}
           </View>
 
           <View style={styles.formGroup}>
@@ -691,6 +703,16 @@ export const CreateLeadScreen: React.FC<CreateLeadScreenProps> = ({
           <Text style={styles.submitButtonText}>Create Lead</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Searchable Staff Directory Modal */}
+      <SearchableStaffPickerModal
+        visible={staffPickerVisible}
+        title="Assign Officers (Staff Directory)"
+        selectedStaffNames={assignedStaff.map((s) => s.name)}
+        onSelectStaff={handleSelectStaffFromPicker}
+        onClose={() => setStaffPickerVisible(false)}
+        multiSelect={true}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -1077,6 +1099,59 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.textInverse,
     fontWeight: 'bold',
+  },
+  fieldHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  badgeCount: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.brandPrimary,
+    backgroundColor: Colors.brandSubtle,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  searchStaffBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surfaceCard,
+    borderWidth: 1.5,
+    borderColor: Colors.brandPrimary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  searchStaffBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  searchStaffIcon: {
+    fontSize: 14,
+  },
+  searchStaffBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.brandPrimary,
+  },
+  searchStaffArrow: {
+    fontSize: 14,
+    color: Colors.brandPrimary,
+    fontWeight: '700',
+  },
+  noStaffAssignedText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    fontStyle: 'italic',
+    marginTop: 2,
   },
   assignedStaffContainer: {
     gap: 6,

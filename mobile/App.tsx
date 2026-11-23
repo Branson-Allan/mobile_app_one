@@ -47,6 +47,7 @@ export default function App() {
     segment: 'All',
     priority: 'All',
     branch: 'All',
+    assignedEmployee: 'All',
   });
 
   // Action & Management Modals State
@@ -66,6 +67,7 @@ export default function App() {
     if (filters.segment !== 'All') count++;
     if (filters.priority !== 'All') count++;
     if (filters.branch !== 'All') count++;
+    if (filters.assignedEmployee && filters.assignedEmployee !== 'All') count++;
     return count;
   }, [filters]);
 
@@ -84,6 +86,13 @@ export default function App() {
       if (filters.segment !== 'All' && l.segment !== filters.segment) return false;
       if (filters.priority !== 'All' && l.priority !== filters.priority) return false;
       if (filters.branch !== 'All' && l.branch !== filters.branch) return false;
+      if (
+        filters.assignedEmployee &&
+        filters.assignedEmployee !== 'All' &&
+        !l.assignedTo?.includes(filters.assignedEmployee)
+      ) {
+        return false;
+      }
       return true;
     });
   }, [leads, filters]);
@@ -315,6 +324,7 @@ export default function App() {
             segment: 'All',
             priority: 'All',
             branch: 'All',
+            assignedEmployee: 'All',
           })
         }
         matchingCount={filteredLeads.length}

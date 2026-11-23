@@ -11,6 +11,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { SearchableStaffPickerModal } from '../components/SearchableStaffPickerModal';
+import { ENTERPRISE_STAFF_DIRECTORY } from '../data/mockData';
 import { Colors } from '../theme/colors';
 import { BorderRadius, Shadows, Spacing } from '../theme/spacing';
 import { Lead } from '../types';
@@ -22,16 +24,6 @@ interface ReassignLeadModalProps {
   onReassign: (leadId: string, newAssignees: string[], handoverNotes: string) => void;
 }
 
-const ALL_OFFICERS = [
-  { name: 'Branson Allann', role: 'Relationship Manager' },
-  { name: 'Calendar event', role: 'Administrator' },
-  { name: 'Demo Account', role: 'Sales Officer' },
-  { name: 'Mutai Mutai', role: 'Account Exec' },
-  { name: 'Nelly Nelly', role: 'Collections Manager' },
-  { name: 'System Admin', role: 'Administrator' },
-  { name: 'Permission Permission', role: 'Compliance Officer' },
-];
-
 export const ReassignLeadModal: React.FC<ReassignLeadModalProps> = ({
   visible,
   lead,
@@ -42,6 +34,7 @@ export const ReassignLeadModal: React.FC<ReassignLeadModalProps> = ({
 
   const [assigned, setAssigned] = useState<string[]>(lead.assignedTo || []);
   const [notes, setNotes] = useState('');
+  const [staffPickerVisible, setStaffPickerVisible] = useState(false);
 
   const handleAdd = (name: string) => {
     if (!assigned.includes(name)) {
@@ -59,7 +52,8 @@ export const ReassignLeadModal: React.FC<ReassignLeadModalProps> = ({
   };
 
   return (
-    <Modal
+    <>
+      <Modal
       visible={visible}
       transparent
       animationType="fade"
@@ -97,19 +91,41 @@ export const ReassignLeadModal: React.FC<ReassignLeadModalProps> = ({
                 <Text style={styles.branchText}>Branch: {lead.branch}</Text>
               </View>
 
+              {/* Header row with count */}
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.label}>
+                  Current Assignees ({assigned.length})
+                </Text>
+              </View>
+
+              {/* Select & Search Button from Directory */}
+              <TouchableOpacity
+                style={styles.searchStaffBtn}
+                onPress={() => setStaffPickerVisible(true)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Select and search assigned officers from enterprise directory"
+              >
+                <View style={styles.searchStaffBtnLeft}>
+                  <Text style={styles.searchStaffIcon}>🔍</Text>
+                  <Text style={styles.searchStaffBtnText}>
+                    Select & Search Staff Directory...
+                  </Text>
+                </View>
+                <Text style={styles.searchStaffArrow}>▾</Text>
+              </TouchableOpacity>
+
               {/* Current Assignees with Isolated Delete Targets */}
-              <Text style={styles.label}>
-                Current Assignees ({assigned.length})
-              </Text>
               <View style={styles.assigneesList}>
                 {assigned.length === 0 ? (
                   <Text style={styles.noAssigneesText}>
-                    No staff currently assigned. Please add at least one officer.
+                    No staff currently assigned. Please tap above to select at least one officer.
                   </Text>
                 ) : (
                   assigned.map((name) => {
-                    const officer = ALL_OFFICERS.find((o) => o.name === name);
+                    const officer = ENTERPRISE_STAFF_DIRECTORY.find((o) => o.name === name);
                     const role = officer?.role || 'Sales Officer';
+                    const dept = officer?.department;
                     return (
                       <View key={name} style={styles.assigneeChip}>
                         <View style={styles.assigneeInfo}>
@@ -117,12 +133,16 @@ export const ReassignLeadModal: React.FC<ReassignLeadModalProps> = ({
                           <View style={styles.roleBadge}>
                             <Text style={styles.roleText}>{role}</Text>
                           </View>
+                          {dept ? (
+                            <Text style={styles.deptSubtext}>• {dept}</Text>
+                          ) : null}
                         </View>
                         {/* 32px Touch Target for Delete */}
                         <TouchableOpacity
                           style={styles.deleteTarget}
                           onPress={() => handleRemove(name)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityLabel={`Remove ${name}`}
                         >
                           <Text style={styles.deleteIcon}>✕</Text>
                         </TouchableOpacity>
@@ -132,17 +152,18 @@ export const ReassignLeadModal: React.FC<ReassignLeadModalProps> = ({
                 )}
               </View>
 
-              {/* Add Assignment from Staff Pool */}
+              {/* Quick Add Suggestions */}
               <Text style={[styles.label, { marginTop: Spacing.sm }]}>
-                Add Officer to Lead
+                Quick Suggestions
               </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.officerPoolScroll}
               >
-                {ALL_OFFICERS.filter((o) => !assigned.includes(o.name)).map(
-                  (officer) => (
+                {ENTERPRISE_STAFF_DIRECTORY.filter((o) => !assigned.includes(o.name))
+                  .slice(0, 6)
+                  .map((officer) => (
                     <TouchableOpacity
                       key={officer.name}
                       style={styles.officerChip}
@@ -152,8 +173,7 @@ export const ReassignLeadModal: React.FC<ReassignLeadModalProps> = ({
                         ＋ {officer.name} ({officer.role})
                       </Text>
                     </TouchableOpacity>
-                  )
-                )}
+                  ))}
               </ScrollView>
 
               {/* Handover Notes */}
@@ -191,6 +211,17 @@ export const ReassignLeadModal: React.FC<ReassignLeadModalProps> = ({
         </View>
       </TouchableWithoutFeedback>
     </Modal>
+
+    {/* Searchable Staff Directory Modal */}
+    <SearchableStaffPickerModal
+      visible={staffPickerVisible}
+      title="Reassign Lead: Staff Directory"
+      selectedStaffNames={assigned}
+      onSelectStaff={(selected) => setAssigned(selected)}
+      onClose={() => setStaffPickerVisible(false)}
+      multiSelect={true}
+    />
+  </>
   );
 };
 
@@ -267,6 +298,43 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 1,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  searchStaffBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surfaceCard,
+    borderWidth: 1.5,
+    borderColor: Colors.brandPrimary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  searchStaffBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  searchStaffIcon: {
+    fontSize: 14,
+  },
+  searchStaffBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.brandPrimary,
+  },
+  searchStaffArrow: {
+    fontSize: 14,
+    color: Colors.brandPrimary,
+    fontWeight: '700',
+  },
   label: {
     fontSize: 12,
     fontWeight: '600',
@@ -314,6 +382,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: Colors.brandPrimary,
+  },
+  deptSubtext: {
+    fontSize: 11,
+    color: Colors.textMuted,
   },
   deleteTarget: {
     width: 32,

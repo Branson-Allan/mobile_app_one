@@ -10,6 +10,17 @@ export type LeadStatus =
 export type CustomerSegment = 'Retail' | 'Corporate' | 'Business';
 export type LeadPriority = 'Low' | 'Medium' | 'High';
 
+export interface StaffMember {
+  id: string;
+  name: string;
+  role: string;
+  department: string;
+  branch: string;
+  email: string;
+  phone?: string;
+  avatarColor?: string;
+}
+
 export interface Lead {
   id: string; // e.g., 'L-2026-000180'
   customer: string;
