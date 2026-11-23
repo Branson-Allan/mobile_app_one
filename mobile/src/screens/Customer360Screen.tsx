@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Linking,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -30,6 +31,30 @@ export const Customer360Screen: React.FC<Customer360ScreenProps> = ({
   const [complianceExpanded, setComplianceExpanded] = useState<boolean>(true);
   const [activityFilter, setActivityFilter] = useState<string>('Leads');
   const [activeCif, setActiveCif] = useState<string>(cif);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Sync if cif prop changes externally (e.g. from lead card click)
+  React.useEffect(() => {
+    if (cif && cif !== activeCif) {
+      setActiveCif(cif);
+      setSelectedAccountIndex(0);
+    }
+  }, [cif]);
+
+  // Live filter across all customer attributes
+  const matchingResults = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return [];
+    return Object.values(MOCK_CUSTOMERS).filter((c) => {
+      const inName = c.fullName.toLowerCase().includes(q);
+      const inCif = c.cif.includes(q);
+      const inId = c.idPassport.includes(q);
+      const inPhone = c.phone.replace(/\s+/g, '').includes(q.replace(/\s+/g, ''));
+      const inEmail = c.email.toLowerCase().includes(q);
+      const inAccounts = c.accounts.some((acc) => acc.accountNumber.includes(q));
+      return inName || inCif || inId || inPhone || inEmail || inAccounts;
+    });
+  }, [searchQuery]);
 
   const customer: Customer360 = MOCK_CUSTOMERS[activeCif] || MOCK_CUSTOMERS['837649'];
 
@@ -55,52 +80,158 @@ export const Customer360Screen: React.FC<Customer360ScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Top Bar if navigated with back button */}
+      {/* Top Bar with Search Input & Quick Customer Switcher */}
       <View style={styles.topBar}>
-        {onBack ? (
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Text style={styles.backArrow}>←</Text>
-          </TouchableOpacity>
-        ) : null}
-        <Text style={styles.topBarTitle}>Customer 360° Profile</Text>
-
-        {/* Quick Customer Switcher Dropdown */}
-        <View style={styles.customerSwitcher}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {Object.keys(MOCK_CUSTOMERS).map((key) => {
-              const c = MOCK_CUSTOMERS[key];
-              const isCurrent = key === activeCif;
-              return (
-                <TouchableOpacity
-                  key={key}
-                  style={[
-                    styles.switcherChip,
-                    isCurrent && styles.switcherChipActive,
-                  ]}
-                  onPress={() => {
-                    setActiveCif(key);
-                    setSelectedAccountIndex(0);
-                    if (onSelectCustomer) onSelectCustomer(key);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.switcherChipText,
-                      isCurrent && styles.switcherChipTextActive,
-                    ]}
-                  >
-                    {c.fullName.split(' ')[0]} ({c.cif})
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+        <View style={styles.topBarTitleRow}>
+          {onBack ? (
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={onBack}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Text style={styles.backArrow}>←</Text>
+            </TouchableOpacity>
+          ) : null}
+          <Text style={styles.topBarTitle}>Customer 360° Profile</Text>
+          <View style={styles.customerCountBadge}>
+            <Text style={styles.customerCountText}>
+              {Object.keys(MOCK_CUSTOMERS).length} Profiles
+            </Text>
+          </View>
         </View>
+
+        {/* Dedicated Search Input Bar */}
+        <View style={styles.searchBar}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by Name, CIF, National ID, Phone..."
+            placeholderTextColor={Colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {searchQuery ? (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.clearSearchIcon}>✕</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* Quick Customer Switcher Chips (when not actively searching) */}
+        {!searchQuery.trim() && (
+          <View style={styles.customerSwitcherContainer}>
+            <Text style={styles.switcherLabel}>Quick Switch:</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.switcherContent}
+            >
+              {Object.keys(MOCK_CUSTOMERS).map((key) => {
+                const c = MOCK_CUSTOMERS[key];
+                const isCurrent = key === activeCif;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[
+                      styles.switcherChip,
+                      isCurrent && styles.switcherChipActive,
+                    ]}
+                    onPress={() => {
+                      setActiveCif(key);
+                      setSelectedAccountIndex(0);
+                      if (onSelectCustomer) onSelectCustomer(key);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.switcherChipText,
+                        isCurrent && styles.switcherChipTextActive,
+                      ]}
+                    >
+                      {c.fullName.split(' ')[0]} ({c.cif})
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
       </View>
+
+      {/* Live Search Results Dropdown Panel */}
+      {searchQuery.trim().length > 0 && (
+        <View style={[styles.searchResultsPanel, Shadows.modal]}>
+          <View style={styles.searchResultsHeader}>
+            <Text style={styles.searchResultsCount}>
+              Found {matchingResults.length} matching customer
+              {matchingResults.length === 1 ? '' : 's'}:
+            </Text>
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Text style={styles.dismissSearchText}>Close Search ✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {matchingResults.length > 0 ? (
+            matchingResults.map((item) => (
+              <TouchableOpacity
+                key={item.cif}
+                style={styles.searchResultItem}
+                onPress={() => {
+                  setActiveCif(item.cif);
+                  setSelectedAccountIndex(0);
+                  setSearchQuery('');
+                  if (onSelectCustomer) onSelectCustomer(item.cif);
+                }}
+              >
+                <View style={styles.resultAvatar}>
+                  <Text style={styles.resultAvatarText}>
+                    {item.fullName.charAt(0)}
+                  </Text>
+                </View>
+                <View style={styles.resultInfo}>
+                  <View style={styles.resultTitleRow}>
+                    <Text style={styles.resultName}>{item.fullName}</Text>
+                    <View style={styles.resultTypeBadge}>
+                      <Text style={styles.resultTypeText}>
+                        {item.customerType}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.resultMeta}>
+                    CIF: <Text style={styles.boldMono}>{item.cif}</Text> • ID:{' '}
+                    <Text style={styles.boldMono}>{item.idPassport}</Text> • 📞{' '}
+                    {item.phone}
+                  </Text>
+                  <Text style={styles.resultSub}>
+                    🏢 {item.accounts[0]?.branchName || 'DTB Branch'} •{' '}
+                    {item.accounts.length} Active Accounts
+                  </Text>
+                </View>
+                <View style={styles.viewResultBadge}>
+                  <Text style={styles.viewResultBadgeText}>View 360° ›</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.noResultsBox}>
+              <Text style={styles.noResultsIcon}>🔍</Text>
+              <Text style={styles.noResultsTitle}>No Customers Found</Text>
+              <Text style={styles.noResultsText}>
+                No customer matches "{searchQuery}".
+              </Text>
+              <Text style={styles.noResultsHint}>
+                Try searching by Name (e.g. "Bilal", "Ogacho", "Sakwa"),
+                6-digit CIF, National ID, or Phone.
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
         {/* Customer Identity Header Card */}
@@ -667,8 +798,15 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xs,
     paddingBottom: Spacing.sm,
   },
+  topBarTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xs,
+  },
   backBtn: {
     paddingVertical: 4,
+    marginRight: 6,
   },
   backArrow: {
     fontSize: 20,
@@ -678,18 +816,66 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: Colors.textPrimary,
+    flex: 1,
+  },
+  customerCountBadge: {
+    backgroundColor: Colors.brandSubtle,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.brandAccent,
+  },
+  customerCountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.brandPrimary,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceInput,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.sm,
+    height: 42,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
     marginVertical: 4,
   },
-  customerSwitcher: {
-    flexDirection: 'row',
-    marginTop: 4,
+  searchIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.textPrimary,
+    paddingVertical: 0,
+  },
+  clearSearchIcon: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    paddingHorizontal: 4,
+  },
+  customerSwitcherContainer: {
+    marginTop: 6,
+  },
+  switcherLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  switcherContent: {
+    gap: 6,
   },
   switcherChip: {
     backgroundColor: Colors.surfaceInput,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: BorderRadius.full,
-    marginRight: 6,
     borderWidth: 1,
     borderColor: Colors.surfaceBorder,
   },
@@ -705,6 +891,126 @@ const styles = StyleSheet.create({
   switcherChipTextActive: {
     color: Colors.brandPrimary,
     fontWeight: '700',
+  },
+  searchResultsPanel: {
+    backgroundColor: Colors.surfaceCard,
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.brandPrimary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    maxHeight: 320,
+  },
+  searchResultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
+  },
+  searchResultsCount: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.brandDark,
+  },
+  dismissSearchText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.brandPrimary,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceInput,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginVertical: 4,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+  },
+  resultAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.brandPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.sm,
+  },
+  resultAvatarText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Colors.textInverse,
+  },
+  resultInfo: {
+    flex: 1,
+  },
+  resultTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  resultName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  resultTypeBadge: {
+    backgroundColor: Colors.brandSubtle,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: BorderRadius.xs,
+  },
+  resultTypeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: Colors.brandPrimary,
+  },
+  resultMeta: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  resultSub: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    marginTop: 1,
+  },
+  viewResultBadge: {
+    backgroundColor: Colors.brandDark,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    marginLeft: 6,
+  },
+  viewResultBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textInverse,
+  },
+  noResultsBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+  },
+  noResultsIcon: {
+    fontSize: 28,
+    marginBottom: 4,
+  },
+  noResultsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  noResultsText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  noResultsHint: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 4,
+    textAlign: 'center',
+    maxWidth: 260,
   },
   scrollArea: {
     flex: 1,
