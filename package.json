@@ -1,0 +1,13 @@
+{
+  "name": "kati-crm-mobile-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kati CRM Sales Module Redesign - Mobile App for Diamond Trust Bank Africa",
+  "scripts": {
+    "start": "npm --prefix mobile run web",
+    "mobile": "npm --prefix mobile start",
+    "mobile:web": "npm --prefix mobile run web",
+    "mobile:android": "npm --prefix mobile run android",
+    "mobile:ios": "npm --prefix mobile run ios"
+  }
+}
